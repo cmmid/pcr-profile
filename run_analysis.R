@@ -103,7 +103,7 @@ dat$te_upper_bound <- test_final[, te_upper_bound := ifelse(
 
 # Compile and run stan model
 options(mc.cores = parallel::detectCores())
-mod <- rstan::stan_model(here::here("pcr_breakpoint.stan"))
+mod <- rstan::stan_model("~/repos/pcr-profile-clean/pcr_breakpoint.stan")
 seedx <- 16782497
 fit <- rstan::sampling(mod, chains = 4, 
                        iter = 2000,
@@ -295,6 +295,178 @@ figure3 <- fig3a / bot_panel + plot_annotation(tag_levels = "A")
 
 # Save figure 3
 ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
+
+
+##############################################
+# Figure S1A: Comparison with other findings #
+##############################################
+library(tidyverse)
+library(doMC)
+
+# Directory pointing to the github repository provided by Kucirka et. al.
+# from https://github.com/HopkinsIDD/covidRTPCR
+kdir <- "~/repos/covidRTPCR"
+
+n_iter <- 1500
+n_warmup <- 250
+p_adapt_delta <- 0.99
+n_max_treedepth <- 20
+## the max number of days after exposure to estimate
+T_max <- 30
+exposed_n <- 686
+exposed_pos <- 77
+
+source(paste0(kdir,"/R/utils.R"))
+
+raw_data <- read_csv(paste0(kdir,"/data/antibody-test-data.csv")) %>% 
+    filter(grepl("RT_PCR", test),
+           study != "Danis_no_4")
+
+pcr_dat <- raw_data %>% 
+    ## add non-quantified positives to other positives for Danis et al.
+    mutate(n_adj=n+nqp,
+           test_pos_adj=test_pos+nqp) %>% 
+    ## remove estimates without observations
+    filter(n_adj > 0,
+           ## days needs to be above -5
+           day > -5,
+           ## only use the nasal swabs from Kujawski, not throat swabs
+           !(study == "Kujawski" & test == "RT_PCR_oro")) %>% 
+    mutate(study_idx=paste(study, test, sep="_") %>% as.factor() %>% as.numeric(),
+           pct_pos=test_pos_adj/n_adj)
+
+day_poly <- poly(log(pcr_dat$day+5), degree=3)
+poly_predict <- predict(day_poly, log(1:T_max))
+
+npv_onset_model <- stan_model(paste0(kdir,"/Stan/npv-fixed-onset.stan"))
+
+main_analysis <- make_analysis_data(stan_model=npv_onset_model,
+                                    dat=pcr_dat,
+                                    T_max=T_max,
+                                    poly_est=as.matrix(day_poly),
+                                    poly_pred=poly_predict,
+                                    exposed_n=exposed_n,
+                                    exposed_pos=exposed_pos,
+                                    spec=1,
+                                    iter=n_iter,
+                                    warmup=n_warmup,
+                                    control=list(adapt_delta=p_adapt_delta,
+                                                 max_treedepth=n_max_treedepth),
+                                    save_warmup=F,
+                                    save_stan=F)
+
+infections <- data.table(med = apply(res$T_e, 2, median) - first_last_df$last_asym_day,
+                         bottom = apply(res$T_e, 2, quantile, prob = 0.025) - first_last_df$last_asym_day,
+                         top = apply(res$T_e, 2, quantile, prob = 0.975) - first_last_df$last_asym_day,
+                         num_id = 1:nrow(first_last_df)) 
+
+infections <- merge(infections, first_last_df[, .(num_id, id)], by = "num_id")
+
+dt <- merge(test_final, infections, by = "num_id")[, x := round((day - last_asym_day) - med)
+][, xmin := round((day - last_asym_day) - bottom)
+][, xmax := round((day - last_asym_day) - top)]
+
+pcr_dat_ext <- dt[, .(test_pos = sum(pcr_result), n = .N), by = x
+][order(x)
+][, `:=`(study = "SAFER", test = "RT_PCR", day = x, day_min = x, day_max = x,
+         days_since_exposure = x,
+         inconclusive = 0, nqp = 0, pct_pos = test_pos / n, notes = NA, n_adj = n,
+         test_pos_adj = test_pos, study_idx = 9, model = "Hellewell/Russell")][, x := NULL]
+
+pcr_dat %<>%
+  mutate(model = "Kucirka", days_since_exposure = day + 5)
+
+pcr_dat_ext <- rbindlist(list(pcr_dat, pcr_dat_ext), use.names = TRUE, fill = TRUE)
+
+
+t1 <- as.data.table(main_analysis$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)][, model := "Kucirka"]
+
+t2 <- data.table(fnr_ub = 1 - apply(res$p, 2, quantile, prob = 0.975), 
+                 fnr_lb = 1 - apply(res$p, 2, quantile, prob = 0.025),
+                 fnr_med = 1 - apply(res$p, 2, median),
+                 days_since_exposure = seq(0, 30, 0.1),
+                 model = "Hellewell/Russell")
+
+t4 <- fread("Hay_S1_data.csv")
+t4 <- t4[, .(days_since_exposure = t, fnr_med = 1 - median, fnr_lb = 1 - upper, fnr_ub = 1 - lower, model = "Hay/Kennedy-Shaffer")][days_since_exposure <= 30]
+
+borremans <- fread("borremans_swab_pos.csv")
+borremans <- borremans[, .(days_since_exposure = days_since_onset + 5, pct_pos = (pct_pos / 100), n, model = "Hay/Kennedy-Shaffer")]
+fig4a_points <- rbindlist(list(pcr_dat_ext, borremans), use.names = TRUE, fill = TRUE)[days_since_exposure >= 0 & days_since_exposure <= 30]
+
+fig4a <- rbindlist(list(t1,t2, t4), use.names = TRUE)%>%
+  ggplot(aes(x = days_since_exposure, y = 1 - fnr_med, ymin = 1 - fnr_lb, ymax = 1 - fnr_ub)) +
+  geom_vline(xintercept = 5, lty = 2) +
+  geom_line(aes(col = model)) +
+  geom_ribbon(aes(fill = model), alpha = 0.45) +
+  geom_point(inherit.aes = FALSE, data = fig4a_points, size = 2,
+             aes(x = days_since_exposure, y = pct_pos, col = model), alpha = 0.6) +
+  facet_wrap(~ model) +
+  scale_x_continuous(breaks = seq(1, 30, 2)) + 
+  cowplot::theme_cowplot() +
+  scale_size_continuous(name = "Number of tests") +
+  scale_color_brewer(guide = "none", palette = "Set2") +
+  scale_fill_brewer(guide = "none", palette = "Set2") +
+  labs(x = "Days since infection", y = "Probability of positive PCR test (%)") +
+  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
+  geom_vline(data = data.frame(model = c("Hellewell/Russell", "Kucirka", "Hay/Kennedy-Shaffer"), xintercept = c(4, 8, 4)),
+             aes(xintercept = xintercept), alpha = 0.5)
+
+
+##################################################
+# Figure S1B: Re-fitting Kucirka with SAFER data #
+##################################################
+
+# Need to convert SAFER study days since exposure into
+# days since onset
+pcr_dat_ext[study == "SAFER", day := day - 5]
+# Remove tests further than 4 days prior to onset
+# Should only be from SAFER, negative tests
+pcr_dat_ext <- pcr_dat_ext[day > -5]
+
+day_poly_ext <- poly(log(pcr_dat_ext$day+5), degree=3)
+poly_predict_ext <- predict(day_poly, log(1:T_max))
+
+main_analysis_ext <- make_analysis_data(stan_model=npv_onset_model,
+                                        dat=pcr_dat_ext,
+                                        T_max=T_max,
+                                        poly_est=as.matrix(day_poly_ext),
+                                        poly_pred=poly_predict_ext,
+                                        exposed_n=exposed_n + 200,
+                                        exposed_pos=exposed_pos + 27,
+                                        spec=1,
+                                        iter=n_iter,
+                                        warmup=n_warmup,
+                                        control=list(adapt_delta=p_adapt_delta,
+                                                     max_treedepth=n_max_treedepth),
+                                        save_warmup=F,
+                                        save_stan=F)
+
+
+t3 <- as.data.table(main_analysis_ext$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)][, model := "Kucirka (original + SAFER data)"]
+t3
+
+t2[, model := "Hellewell/Russell (SAFER data only)"]
+
+fig4b <- rbindlist(list(t3,t2), use.names = TRUE) %>%
+  ggplot(aes(x = days_since_exposure, y = 1 - fnr_med, ymin = 1 - fnr_lb, ymax = 1 - fnr_ub)) +
+  # geom_point(data = pcr_dat_ext, aes(x = days_since_exposure, y = pct_pos, size = n), inherit.aes = FALSE, alpha = 0.5) +
+  geom_vline(xintercept = 5, lty = 2) +
+  geom_line(aes(col = model)) +
+  geom_ribbon(aes(fill = model), alpha = 0.25) +
+  scale_x_continuous(breaks = seq(0, 30, 1)) + 
+  cowplot::theme_cowplot() +
+  scale_shape_discrete(name = "Number of tests") +
+  scale_fill_brewer(name = "Model", palette = "Set1") +
+  scale_colour_brewer(name = "Model", palette = "Set1") +
+  labs(x = "Days since infection", y = "Probability of positive PCR test (%)") +
+  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
+  geom_vline(xintercept = c(4, 6), alpha = 0.5) +
+  theme(legend.position = "bottom")
+
+# Put figure 4 together
+fig4a / fig4b + patchwork::plot_annotation(tag_levels = "A")
+
 
 ########################
 # Sensitivity analysis #
