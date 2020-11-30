@@ -103,7 +103,7 @@ dat$te_upper_bound <- test_final[, te_upper_bound := ifelse(
 
 # Compile and run stan model
 options(mc.cores = parallel::detectCores())
-mod <- rstan::stan_model("~/repos/pcr-profile-clean/pcr_breakpoint.stan")
+mod <- rstan::stan_model("pcr_breakpoint.stan")
 seedx <- 16782497
 fit <- rstan::sampling(mod, chains = 4, 
                        iter = 2000,
