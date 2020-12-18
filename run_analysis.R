@@ -168,10 +168,7 @@ fig3d <- ct_plot_dt %>%
   scale_color_manual(name = "Test result", values = c("black", "red")) +
   ggtitle("Test results with ct value threshold of 37") +
   theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5),
-        legend.text = element_text(size = 15, face = "bold"),
-        legend.title = element_text(size = 15, face = "bold"),
-        strip.text = element_text(size = 15, face = "bold"))
+        plot.title = element_text(hjust = 0.5))
 
 
 #####################################
@@ -269,16 +266,13 @@ tab$every_lab <- factor(tab$every_lab, levels = paste0("every ", day_list, " day
 tab$delay <- factor(tab$delay, labels = c("1 day", "2 days"))
 
 fig3b <- tab %>%
-  ggplot(aes(x = as.factor(every), y = med, col = delay, ymin = bottom, ymax = top)) +
+  ggplot(aes(x = every_lab, y = med, col = delay, ymin = bottom, ymax = top)) +
   geom_errorbar(position = position_dodge(0.5), width = 0.5) +
   geom_point(position = position_dodge(0.5)) +
   scale_color_brewer(palette = "Set1", name = "Results delay") +
   cowplot::theme_minimal_hgrid() +
   theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5),
-        legend.text = element_text(size = 15, face = "bold"),
-        legend.title = element_text(size = 15, face = "bold"),
-        strip.text = element_text(size = 15, face = "bold")) +
+        plot.title = element_text(hjust = 0.5)) +
   labs(x = "Testing frequency", y = "Probability (%)", title = "Probability of detecting symptomatic case before onset") +
   scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
   coord_cartesian(ylim = c(0 ,1)) +
@@ -314,10 +308,7 @@ fig3c <- tab2 %>%
   scale_color_brewer(palette = "Set1", name = "Results delay") + 
   cowplot::theme_minimal_hgrid() +
   theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5),
-        legend.text = element_text(size = 15, face = "bold"),
-        legend.title = element_text(size = 15, face = "bold"),
-        strip.text = element_text(size = 15, face = "bold")) +
+        plot.title = element_text(hjust = 0.5)) +
   # facet_wrap(~ within) +
   labs(x = "Testing frequency", y = "Probability (%)", title = "Probability of detecting asymptomatic case within 7 days") +
   scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
