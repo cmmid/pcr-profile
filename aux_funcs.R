@@ -1,13 +1,13 @@
-pos_test <- function(x, qu){
+pos_test <- function(x, qu, ptab){
  if(x < 0){
   return(0)
  }else{
-  return(p_tab[diff == x, quantile(value, prob = qu)])
+  return(ptab[diff == x, quantile(value, prob = qu)])
  }
 }
 
 
-detpr <- function(freqX, detect_within = 5, delay_to_result = 2, qu = 0.5){
+detpr <- function(freqX, detect_within = 5, delay_to_result = 2, qu = 0.5, ptab){
  
  pos_sampling_times <- list()
  
@@ -26,8 +26,8 @@ detpr <- function(freqX, detect_within = 5, delay_to_result = 2, qu = 0.5){
  for(j in 1:length(pos_sampling_times)) {
   pk <- 0
   for(k in 1:length(pos_sampling_times[[j]])) {
-   pk <- pos_test(pos_sampling_times[[j]][k] - delay_to_result, qu = qu) * (1 - inc_cumulative(pos_sampling_times[[j]][k])) *
-    ifelse(k > 1, prod(vapply(pos_sampling_times[[j]][1:(k - 1)]  - delay_to_result, FUN = function(x){(1 - pos_test(x, qu = qu)) * (1 - inc_cumulative(x))}, FUN.VALUE = 1)), 1)
+   pk <- pos_test(pos_sampling_times[[j]][k] - delay_to_result, qu = qu, ptab = ptab) * (1 - inc_cumulative(pos_sampling_times[[j]][k])) *
+    ifelse(k > 1, prod(vapply(pos_sampling_times[[j]][1:(k - 1)]  - delay_to_result, FUN = function(x){(1 - pos_test(x, qu = qu, ptab = ptab)) * (1 - inc_cumulative(x))}, FUN.VALUE = 1)), 1)
    pj <- pj + pk
   }
  }
@@ -36,7 +36,7 @@ detpr <- function(freqX, detect_within = 5, delay_to_result = 2, qu = 0.5){
 
 
 # Probability of testing positive
-detpr2 <- function(freqX, detect_within = 5, delay_to_result = 2, qu = 0.5){
+detpr2 <- function(freqX, detect_within = 5, delay_to_result = 2, qu = 0.5, ptab){
  
  pos_sampling_times <- list()
  
@@ -55,8 +55,8 @@ detpr2 <- function(freqX, detect_within = 5, delay_to_result = 2, qu = 0.5){
  for(j in 1:length(pos_sampling_times)) {
   pk <- 0
   for(k in 1:length(pos_sampling_times[[j]])) {
-   pk <- pos_test(pos_sampling_times[[j]][k], qu = qu) * 
-    ifelse(k > 1, prod(vapply(pos_sampling_times[[j]][1:(k - 1)], FUN = function(x){(1 - pos_test(x, qu = qu))}, FUN.VALUE = 1)), 1)
+   pk <- pos_test(pos_sampling_times[[j]][k], qu = qu, ptab = ptab) * 
+    ifelse(k > 1, prod(vapply(pos_sampling_times[[j]][1:(k - 1)], FUN = function(x){(1 - pos_test(x, qu = qu, ptab = ptab))}, FUN.VALUE = 1)), 1)
    pj <- pj + pk
   }
  }
@@ -138,7 +138,7 @@ fit_different_ct <- function(ct_threshold) {
     scale_fill_manual(values = pcols_lft, name = "") +
     scale_linetype_discrete(name = "")
   
-  figS3d <- ct_plot_dt %>%
+  figS3a <- ct_plot_dt %>%
     ggplot(aes(x = x_date, y = ct, group = num_id)) + 
     geom_point(aes(col = ifelse(ct >= ct_threshold, "Negative", "Positive"))) +
     scale_y_reverse() +
@@ -155,31 +155,23 @@ fit_different_ct <- function(ct_threshold) {
   # Evaluated testing frequencies
   day_list <- c(2, 3, 4)
   
-  # Samples from PCR positive curve at different times since infection
-  p_tab <- as.data.table(res_lft$p)
-  p_vals <- seq(0, 30, 0.1)
-  p_tab <- data.table::melt(p_tab)
-  p_tab$diff <- rep(p_vals, rep(12000, length(p_vals)))
-  p_tab$iter <- rep(1:12000, length(p_vals))
-  p_tab[, variable := NULL]
-  
   # Create data table that calculate detection probabilities for different values
   # the function detpr is in the file aux_funcs.R
   tab <- data.table(every = rep(rep(day_list, rep(1, length(day_list))), 1),
                     within = 30,
                     delay = 0)
-  tab[, med := detpr(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay),
+  tab[, med := detpr(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay, ptab = p_tab_lft),
       by = c("every", "within", "delay") ]
-  tab[, top :=  detpr(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay),
+  tab[, top :=  detpr(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay, ptab = p_tab_lft),
       by = c("every", "within", "delay") ]
-  tab[, bottom :=  detpr(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay),
+  tab[, bottom :=  detpr(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay, ptab = p_tab_lft),
       by = c("every", "within", "delay") ]
   
   tab[, every_lab := paste0("every ", every, " day(s)")]
   tab$every_lab <- factor(tab$every_lab, levels = paste0("every ", day_list, " day(s)"))
   tab$delay <- factor(tab$delay, labels = c("0 days"))
   
-  fig3b <- tab %>%
+  figS3c <- tab %>%
     ggplot(aes(x = every_lab, y = med, ymin = bottom, ymax = top)) +
     geom_errorbar(position = position_dodge(0.5), width = 0.5) +
     geom_point(position = position_dodge(0.5)) +
@@ -196,11 +188,11 @@ fit_different_ct <- function(ct_threshold) {
   tab2 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 1),
                      within = 7,
                      delay = 0)
-  tab2[, med := detpr2(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay), 
+  tab2[, med := detpr2(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay, ptab = p_tab_lft), 
        by = c("every", "within", "delay") ]
-  tab2[, top :=  detpr2(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay),
+  tab2[, top :=  detpr2(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay, ptab = p_tab_lft),
        by = c("every", "within", "delay") ]
-  tab2[, bottom :=  detpr2(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay),
+  tab2[, bottom :=  detpr2(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay, ptab = p_tab_lft),
        by = c("every", "within", "delay") ]
   
   tab2[, every_lab := paste0("every ", every, " day(s)")]
@@ -209,7 +201,7 @@ fit_different_ct <- function(ct_threshold) {
   # tab$within <- factor(tab$within, labels = c("Detection within 5 days", "Detection within 7 days"))
   tab2$delay <- factor(tab2$delay, labels = c("0 days"))
   
-  fig3c <- tab2 %>%
+  figS3d <- tab2 %>%
     ggplot(aes(x = every_lab, y = med, ymin = bottom, ymax = top)) +
     geom_errorbar(position = position_dodge(0.5), width = 0.5) +
     geom_point(position = position_dodge(0.5)) +
@@ -222,8 +214,8 @@ fit_different_ct <- function(ct_threshold) {
     scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
     coord_cartesian(ylim = c(0 ,1))
   
-  bot_panel <- (fig3b + fig3c) + patchwork::plot_layout(guides = "collect")
-  figure3 <- (figS3d + figS3b) / bot_panel + plot_annotation(tag_levels = "A") 
+  bot_panel <- (figS3c + figS3d) + patchwork::plot_layout(guides = "collect")
+  figure3 <- (figS3a + figS3b) / bot_panel + plot_annotation(tag_levels = "A") 
   
   return(figure3)
 }

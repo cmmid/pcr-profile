@@ -254,11 +254,11 @@ inc_probability <- function(x){dlnorm(x, meanlog = dat$lmean, sdlog = dat$lsd) }
 tab <- data.table(every = rep(rep(day_list, rep(1, length(day_list))), 2),
                   within = 30,
                   delay = rep(c(1, 2), c(5, 5)))
-tab[, med := detpr(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay),
+tab[, med := detpr(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay, ptab = p_tab),
     by = c("every", "within", "delay") ]
-tab[, top :=  detpr(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay),
+tab[, top :=  detpr(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay, ptab = p_tab),
     by = c("every", "within", "delay") ]
-tab[, bottom :=  detpr(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay),
+tab[, bottom :=  detpr(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay, ptab = p_tab),
     by = c("every", "within", "delay") ]
 
 tab[, every_lab := paste0("every ", every, " day(s)")]
@@ -288,11 +288,11 @@ fig3b <- tab %>%
 tab2 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 2),
                   within = 7,
                   delay = rep(c(1, 2), c(5, 5)))
-tab2[, med := detpr2(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay), 
+tab2[, med := detpr2(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay, ptab = p_tab), 
     by = c("every", "within", "delay") ]
-tab2[, top :=  detpr2(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay),
+tab2[, top :=  detpr2(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay, ptab = p_tab),
     by = c("every", "within", "delay") ]
-tab2[, bottom :=  detpr2(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay),
+tab2[, bottom :=  detpr2(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay, ptab = p_tab),
     by = c("every", "within", "delay") ]
 
 tab2[, every_lab := paste0("every ", every, " day(s)")]
@@ -320,6 +320,13 @@ figure3 <- (fig3d + fig3a) / bot_panel + plot_annotation(tag_levels = "A")
 
 # Save figure 3
 ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
+
+# Alternative figure 3 with different ct thresholds:
+figure3_28 <- fit_different_ct(28)
+ggsave(figure3_28, filename = "figure3_28.pdf", height = 30, width = 40, units = "cm")
+figure3_25 <- fit_different_ct(25)
+ggsave(figure3_25, filename = "figure3_25.pdf", height = 30, width = 40, units = "cm")
+
 
 
 ##############################################
