@@ -150,18 +150,42 @@ fig2 <- allsamp %>%
 ggsave(fig2, filename = "figure2.pdf", width = 25, height = 20, unit = "cm")
 
 
+# Figure 3A: Ct values #
+
+ct_plot_dt <- merge(test_final, allsamp[, .(infection_date = median(smp)), num_id], by = "num_id")
+ct_plot_dt[, ct := ifelse(is.na(ct), 40, ifelse(ct == 0, 40, ct))]
+
+ct_plot_dt[, x_date := date - infection_date]
+
+fig3d <- ct_plot_dt %>%
+  ggplot(aes(x = x_date, y = ct, group = num_id)) + 
+  geom_point(aes(col = ifelse(ct >= 37, "Negative", "Positive"))) +
+  scale_y_reverse() +
+  cowplot::theme_cowplot() +
+  labs(y = "Ct value", x = "Days since infection") +
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_hline(yintercept = 37, lty = 2) +
+  scale_color_manual(name = "Test result", values = c("black", "red")) +
+  ggtitle("Test results with ct value threshold of 37") +
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5),
+        legend.text = element_text(size = 15, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text = element_text(size = 15, face = "bold"))
+
+
 #####################################
 # Figure 3A: Posterior of PCR curve #
 ######################################
 
 # Generate curve from posterior fit of model
-pcols <- c("Posterior distribution" = "dodgerblue","Empirical Distribution" = "black")
-pshp <- c("Posterior distribution" = 1, "Empirical Distribution" = 3)
+pcols <- c("Posterior Distribution" = "dodgerblue","Empirical Distribution" = "black")
+pshp <- c("Posterior Distribution" = 1, "Empirical Distribution" = 3)
 p <- data.frame(top = apply(res$p, 2, quantile, prob = 0.975), 
                 bottom = apply(res$p, 2, quantile, prob = 0.025),
                 y = apply(res$p, 2, median),
                 days = seq(0, 30, 0.1)) %>%
-  ggplot2::ggplot(ggplot2::aes(x = days, y=y,  ymin = bottom, ymax = top, fill = "Posterior distribution")) +
+  ggplot2::ggplot(ggplot2::aes(x = days, y=y,  ymin = bottom, ymax = top, fill = "Posterior Distribution")) +
   ggplot2::geom_ribbon(alpha = 0.75) + 
   cowplot::theme_cowplot() + 
   ggplot2::geom_line(aes(lty = "Posterior median")) +
@@ -301,7 +325,7 @@ fig3c <- tab2 %>%
 
 # Patchwork the three plots together
 bot_panel <- (fig3b + fig3c) + patchwork::plot_layout(guides = "collect")
-figure3 <- fig3a / bot_panel + plot_annotation(tag_levels = "A") 
+figure3 <- (fig3d + fig3a) / bot_panel + plot_annotation(tag_levels = "A") 
 
 # Save figure 3
 ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
@@ -556,7 +580,7 @@ res_day_lft <- res_day_lft[, .(pos = sum(pcr_result) / .N), by = list(iter, x)
       bottom = quantile(pos, 0.025)), by = x][x >= 0]
 
 # Add empirical distribution to posterior distribution plot
-pcols_lft <- c("Posterior distribution" = "firebrick2","Empirical Distribution" = "black")
+pcols_lft <- c("Posterior Distribution" = "firebrick2","Empirical Distribution" = "black")
 figS3 <- p_lft + 
   geom_ribbon(data = res_day_lft, inherit.aes = FALSE, aes(x = x, y = mean, ymin = bottom, ymax = top, fill = "Empirical Distribution"), alpha = 0.25) +
   geom_line(data = res_day_lft, inherit.aes = FALSE, aes(x = x, y = mean, lty = "Empirical mean")) +
