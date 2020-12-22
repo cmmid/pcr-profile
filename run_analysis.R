@@ -323,11 +323,9 @@ ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
 
 # Alternative figure 3 with different ct thresholds:
 figure3_28 <- fit_different_ct(28)
-ggsave(figure3_28, filename = "figure3_28.pdf", height = 30, width = 40, units = "cm")
+ggsave(figure3_28$plot, filename = "figure3_28.pdf", height = 30, width = 40, units = "cm")
 figure3_25 <- fit_different_ct(25)
-ggsave(figure3_25, filename = "figure3_25.pdf", height = 30, width = 40, units = "cm")
-
-
+ggsave(figure3_25$plot, filename = "figure3_25.pdf", height = 30, width = 40, units = "cm")
 
 ##############################################
 # Figure S1A: Comparison with other findings #

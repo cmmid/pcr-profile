@@ -217,5 +217,5 @@ fit_different_ct <- function(ct_threshold) {
   bot_panel <- (figS3c + figS3d) + patchwork::plot_layout(guides = "collect")
   figure3 <- (figS3a + figS3b) / bot_panel + plot_annotation(tag_levels = "A") 
   
-  return(figure3)
+  return(list("plot" = figure3, "p_tab" = p_tab_lft, "fit" = fit_lft))
 }
