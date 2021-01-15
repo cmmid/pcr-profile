@@ -4,7 +4,7 @@
 dt <- data.table::fread("fitted_params.csv")
 
 prob_cont <- function(time_since_inf, q = 0.5) {
-  dt[, p := boot::inv.logit(beta1 + beta2 * (time_since_inf - cutpoint) + (time_since_inf - cutpoint) * beta3 * beta2 * fifelse(time_since_inf - cutpoint > 0, 1, 0))]
+  dt[, p := boot::inv.logit(beta1 + beta2 * (time_since_inf - cutpoint) + (time_since_inf - cutpoint) * beta3 * beta2 * ifelse(time_since_inf - cutpoint > 0, 1, 0))]
   out <- quantile(dt$p, probs = q)
   return(out)
 }
