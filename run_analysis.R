@@ -8,8 +8,10 @@ library(ggplot2)
 library(patchwork)
 library(ggridges)
 library(ggnewscale)
+
 # Load auxillary functions
 source(here::here("aux_funcs.R"))
+source(here::here("figure_functions.R"))
 
 # Load in participant data
 test_final <- data.table::fread("test_data.csv")
@@ -49,28 +51,10 @@ test_final <- merge(test_final, first_last_df)
 # Figure 1: Symptom and testing data #
 ######################################
 
+# Merge testing and symptom data into one data table
 dfy <- merge(symp_final, test_final, by = c("num_id","day"))
-cols1 <- scales::viridis_pal(option = "D")(10)
-cols2 <- scales::viridis_pal(option = "A")(10)
 
-# Generate figure 1
-fig1 <- dfy %>%
-  ggplot(aes(x = day  - last_asym_day.x, y = as.factor(num_id))) +
-  geom_point(aes(fill = symptom), size = 3, shape = 21, stroke = 1.5, col = "white") +
-  geom_point(aes(col = pcr_result), size = 3, shape = 21, stroke = 1.5) +
-  cowplot::theme_minimal_grid() +
-  scale_color_manual(values = cols1[c(2,7)], name = "PCR result", labels = c("Negative", "Positive")) +
-  scale_fill_manual(values = c("white","red"), name = "Symptoms") +
-  labs(x = "Day", y = "Participant ID") +
-  theme(axis.text.x=element_blank()) + 
-  scale_x_continuous(breaks =  seq(-19, 38, 1)) +
-  coord_cartesian(xlim = c(-19, 38)) +
-  new_scale_color() +
-  geom_point(data = dfy[!is.na(serology_day), .(serology_day = serology_day[1] - last_asym_day.x), num_id][, sero := TRUE],
-             inherit.aes = FALSE,
-             aes(x = serology_day, y = as.factor(num_id), col = sero), pch = 4, size = 4) +
-  scale_color_manual(name = "Serology result", values = "black", labels = "Negative") 
- 
+fig1 <- figure1(dfy) 
 
 # Save Figure 1
 ggsave(fig1, filename = "figure1.pdf", height = 20, width = 40, units = "cm")
@@ -121,107 +105,41 @@ res <- rstan::extract(fit)
 ##########################################
 
 # Create data table of all infection time samples
-allsamp <- as.data.table(data.table::melt(res$T_e, value.name = "sample"))[, .(iterations, num_id = Var2, smp = sample)]
+allsamp <- data.table::melt(as.data.table(res$T_e)[, iterations := 1:.N], 
+                            id.vars = c("iterations"), 
+                            value.name = "sample")[, .(iterations, num_id = variable, smp = sample)
+                                                   ][, num_id := as.numeric(num_id)]
 # Bin into discrete days
 allsamp[, smp := round(smp) + start_date]
 cols <- c("Posterior infection date" = "darkorchid4", "Censored onset interval" = "green4")
 
 # Generate figure 2
-fig2 <- allsamp %>%
-  ggplot(aes(x = smp, y = as.factor(num_id), col = "Posterior infection date")) + 
-  geom_density_ridges(stat = "binline", binwidth = 1, rel_min_height = 0.025, scale = 0.7, 
-                       fill = "darkorchid4", alpha = 0.5) +
-  geom_errorbarh(data = first_last_df, inherit.aes = FALSE, position = position_dodge(width = 5),
-                 aes(y = as.factor(num_id), xmin = last_asym_day + start_date, xmax = first_symp_day + start_date, color = "Censored onset interval"), 
-                 lty = 2, size = 1, height = 0.5
-  ) +
-  theme_bw() +
-  labs(y = "Participant ID", x = "Date") +
-  scale_color_manual(name = "", values = cols) +
-  theme(legend.position = "bottom",
-        axis.text = element_text(size = 14),
-        axis.title = element_text(size = 15, face = "bold"),
-        legend.text = element_text(size = 14)) +
-  guides(color = guide_legend(override.aes = list(fill = "white"))) +
-  coord_cartesian(xlim = c(as.Date("2020-03-13"), as.Date("2020-04-17"))) +
-  scale_x_date(minor_breaks = "1 day", breaks = "4 days", date_labels = "%d %B")
+fig2 <- figure2(allsamp)
 
 # Save figure 2
 ggsave(fig2, filename = "figure2.pdf", width = 25, height = 20, unit = "cm")
 
-
+########################
 # Figure 3A: Ct values #
+########################
 
 ct_plot_dt <- merge(test_final, allsamp[, .(infection_date = median(smp)), num_id], by = "num_id")
 ct_plot_dt[, ct := ifelse(is.na(ct), 40, ifelse(ct == 0, 40, ct))]
 
 ct_plot_dt[, x_date := date - infection_date]
 
-fig3d <- ct_plot_dt %>%
-  ggplot(aes(x = x_date, y = ct, group = num_id)) + 
-  geom_point(aes(col = ifelse(ct >= 37, "Negative", "Positive"))) +
-  scale_y_reverse() +
-  cowplot::theme_cowplot() +
-  labs(y = "Ct value", x = "Days since infection") +
-  geom_vline(xintercept = 0, lty = 2) +
-  geom_hline(yintercept = 37, lty = 2) +
-  scale_color_manual(name = "Test result", values = c("black", "red")) +
-  ggtitle("Test results with ct value threshold of 37") +
-  theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5))
+fig3a <- figure3a(ct_plot_dt)
 
 
 #####################################
-# Figure 3A: Posterior of PCR curve #
+# Figure 3B: Posterior of PCR curve #
 ######################################
 
-# Generate curve from posterior fit of model
-pcols <- c("Posterior Distribution" = "dodgerblue","Empirical Distribution" = "black")
-pshp <- c("Posterior Distribution" = 1, "Empirical Distribution" = 3)
-p <- data.frame(top = apply(res$p, 2, quantile, prob = 0.975), 
-                bottom = apply(res$p, 2, quantile, prob = 0.025),
-                y = apply(res$p, 2, median),
-                days = seq(0, 30, 0.1)) %>%
-  ggplot2::ggplot(ggplot2::aes(x = days, y=y,  ymin = bottom, ymax = top, fill = "Posterior Distribution")) +
-  ggplot2::geom_ribbon(alpha = 0.75) + 
-  cowplot::theme_cowplot() + 
-  ggplot2::geom_line(aes(lty = "Posterior median")) +
-  ggplot2::labs(y = "Probability of positive PCR (%)", x = "Days since infection") +
-  ggplot2::scale_y_continuous(breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 100, 20))) +
-  ggplot2::scale_x_continuous(breaks = c(0, seq(5, 30, 5)))
-
-# Generate empirical distribution of PCR curve from posterior samples 
-# of infection times
-
-res_day <- as.data.table(t(res$T_e)) %>%
-  melt(value.name = "inf_day", variable.name = "iter")
-
-res_day[ , num_id := 1:.N, iter]
-res_day <- res_day[, .(iter = 1:.N, inf_day), num_id]
-
-res_day <- merge(test_final, res_day, by = "num_id", allow.cartesian = TRUE)
-
-res_day[, x := day - round(inf_day)]
-
-res_day <- res_day[, .(pos = sum(pcr_result) / .N), by = list(iter, x)
-][, .(top = quantile(pos, 0.975), 
-      mean = mean(pos),
-      bottom = quantile(pos, 0.025)), by = x][x >= 0]
-
-# Add empirical distribution to posterior distribution plot
-fig3a <- p + 
-  geom_ribbon(data = res_day, inherit.aes = FALSE, aes(x = x, y = mean, ymin = bottom, ymax = top, fill = "Empirical Distribution"), alpha = 0.25) +
-  geom_line(data = res_day, inherit.aes = FALSE, aes(x = x, y = mean, lty = "Empirical mean")) +
-  scale_y_continuous(breaks = seq(0, 1, 0.2), labels = seq(0, 100, 20)) +
-  coord_cartesian(xlim = c(0, 30)) +
-  ggtitle("PCR positivity over the course of infection") +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  scale_fill_manual(values = pcols, name = "") +
-  scale_linetype_discrete(name = "")
+fig3b <- figure3b(res, test_final)
 
 
 #############################################################
-# Figure 3B: Probability of detecting symptomatic infection #
+# Figure 3C: Probability of detecting symptomatic infection #
 #############################################################
 
 # Evaluated testing frequencies
@@ -249,38 +167,24 @@ fwrite(p_tab[, .(median = median(value),
 inc_cumulative <- function(x){plnorm(x, meanlog = dat$lmean, sdlog = dat$lsd) }
 inc_probability <- function(x){dlnorm(x, meanlog = dat$lmean, sdlog = dat$lsd) }
 
-# Create data table that calculate detection probabilities for different values
-# the function detpr is in the file aux_funcs.R
+# Create a table of parameter value combinations to run over
 tab <- data.table(every = rep(rep(day_list, rep(1, length(day_list))), 2),
                   within = 30,
                   delay = rep(c(1, 2), c(5, 5)))
-tab[, med := detpr(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay, ptab = p_tab),
-    by = c("every", "within", "delay") ]
-tab[, top :=  detpr(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay, ptab = p_tab),
-    by = c("every", "within", "delay") ]
-tab[, bottom :=  detpr(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay, ptab = p_tab),
-    by = c("every", "within", "delay") ]
 
-tab[, every_lab := paste0("every ", every, " day(s)")]
-tab$every_lab <- factor(tab$every_lab, levels = paste0("every ", day_list, " day(s)"))
-tab$delay <- factor(tab$delay, labels = c("1 day", "2 days"))
+# Calculate summary statistics for each parameter combination
+# The function prob_det_before_symp can be found in aux_funcs.R
+# THIS MAY TAKE A LONG TIME TO RUN!
+tab <- tab[, prob_det_before_symp(freqX = every, delay = delay), by = c("every", "delay")]
 
-fig3b <- tab %>%
-  ggplot(aes(x = every_lab, y = med, col = delay, ymin = bottom, ymax = top)) +
-  geom_errorbar(position = position_dodge(0.5), width = 0.5) +
-  geom_point(position = position_dodge(0.5)) +
-  scale_color_brewer(palette = "Set1", name = "Results delay") +
-  cowplot::theme_minimal_hgrid() +
-  theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5)) +
-  labs(x = "Testing frequency", y = "Probability (%)", title = "Probability of detecting symptomatic case before onset") +
-  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
-  coord_cartesian(ylim = c(0 ,1)) +
-  geom_rect(mapping = aes(xmin = 1.99, xmax = 3.01, ymax = 0.6, ymin = 0.2), fill = NA, col = "black", lty = 2)
+# Generate figure 3c
+fig3c <- figure3c(tab)
+
+
 
 
 ##############################################################
-# Figure 3B: Probability of detecting asymptomatic infection #
+# Figure 3D: Probability of detecting asymptomatic infection #
 ##############################################################
 
 # Same procedure as for 3A but with different probability
@@ -288,35 +192,18 @@ fig3b <- tab %>%
 tab2 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 2),
                   within = 7,
                   delay = rep(c(1, 2), c(5, 5)))
-tab2[, med := detpr2(freqX = every, qu = 0.5, detect_within = within, delay_to_result = delay, ptab = p_tab), 
-    by = c("every", "within", "delay") ]
-tab2[, top :=  detpr2(freqX = every, qu = 0.975, detect_within = within, delay_to_result = delay, ptab = p_tab),
-    by = c("every", "within", "delay") ]
-tab2[, bottom :=  detpr2(freqX = every, qu = 0.025, detect_within = within, delay_to_result = delay, ptab = p_tab),
-    by = c("every", "within", "delay") ]
 
-tab2[, every_lab := paste0("every ", every, " day(s)")]
-tab2$every_lab <- factor(tab2$every_lab, levels = paste0("every ", day_list, " day(s)"))
+# Calculate summary statistics for each parameter combination
+# The function prob_det_before_X_asymp can be found in aux_funcs.R
+# THIS MAY TAKE A LONG TIME TO RUN!
+tab2 <- tab2[, prob_det_before_X_asymp(freqX = every, delay = delay, within = within), by = c("every", "delay")]
 
-# tab$within <- factor(tab$within, labels = c("Detection within 5 days", "Detection within 7 days"))
-tab2$delay <- factor(tab2$delay, labels = c("1 day", "2 days"))
-
-fig3c <- tab2 %>%
-  ggplot(aes(x = every_lab, y = med, col = delay, ymin = bottom, ymax = top)) +
-  geom_errorbar(position = position_dodge(0.5), width = 0.5) +
-  geom_point(position = position_dodge(0.5)) +
-  scale_color_brewer(palette = "Set1", name = "Results delay") + 
-  cowplot::theme_minimal_hgrid() +
-  theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5)) +
-  # facet_wrap(~ within) +
-  labs(x = "Testing frequency", y = "Probability (%)", title = "Probability of detecting asymptomatic case within 7 days") +
-  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
-  coord_cartesian(ylim = c(0 ,1))
+# Generate figure 3c
+fig3d <- figure3d(tab2)
 
 # Patchwork the three plots together
-bot_panel <- (fig3b + fig3c) + patchwork::plot_layout(guides = "collect")
-figure3 <- (fig3d + fig3a) / bot_panel + plot_annotation(tag_levels = "A") 
+bot_panel <- (fig3c + fig3d) + patchwork::plot_layout(guides = "collect")
+figure3 <- (fig3a + fig3b) / bot_panel + plot_annotation(tag_levels = "A") 
 
 # Save figure 3
 ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
