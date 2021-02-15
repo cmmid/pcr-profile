@@ -173,17 +173,15 @@ tab <- data.table(every = rep(rep(day_list, rep(1, length(day_list))), 2),
                   delay = rep(c(1, 2), c(5, 5)))
 
 # Calculate summary statistics for each parameter combination
-# The function prob_det_before_symp can be found in aux_funcs.R
-# THIS MAY TAKE AROUND 30 MINUTES TO RUN
-# tab <- tab[, prob_det_before_symp(freqX = every, delay = delay), by = c("every", "delay")]
-# fwrite(tab, file = "prob_det_before_symp_res.csv")
-# So instead we read in a csv of results
-tab <- fread("prob_det_before_symp_res.csv")
+tab <- tab[, testing_func(freqX = every, 
+                          detect_within = 30, 
+                                  delay_to_result = delay,
+                                  symp = TRUE,
+                                  ptab = p_tab), 
+           by = c("every", "delay")]
 
 # Generate figure 3c
 fig3c <- figure3c(tab)
-
-
 
 
 ##############################################################
@@ -197,12 +195,12 @@ tab2 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 
                   delay = rep(c(1, 2), c(5, 5)))
 
 # Calculate summary statistics for each parameter combination
-# The function prob_det_before_X_asymp can be found in aux_funcs.R
-# THIS MAY TAKE ABOUT 5 MINUTES TO RUN!
-# tab2 <- tab2[, prob_det_before_X_asymp(freqX = every, delay = delay, within = within), by = c("every", "delay")]
-# fwrite(tab2, file = "prob_det_before_X_asymp_res.csv")
-
-tab2 <- fread("prob_det_before_X_asymp_res.csv")
+tab2 <- tab2[, testing_func(freqX = every, 
+                          detect_within = 7, 
+                          delay_to_result = delay,
+                          symp = FALSE,
+                          ptab = p_tab), 
+           by = c("every", "delay")]
 
 # Generate figure 3c
 fig3d <- figure3d(tab2)
@@ -217,9 +215,14 @@ ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
 # Alternative figure 3 with different ct thresholds:
 # THESE WILL TAKE A WHILE TO RUN AS THEY INVOLVE GENERATING 
 # NEW COPIES OF FIGURE 3C + D EACH
-figure3_28 <- fit_different_ct(28)
+test_final_lft <- data.table::copy(test_final)
+figure3_28 <- fit_different_ct(ct_threshold = 28, 
+                               test_final = test_final_lft, 
+                               mod = mod, seedx = seedx)
 ggsave(figure3_28$plot, filename = "figure3_28.pdf", height = 30, width = 40, units = "cm")
-figure3_25 <- fit_different_ct(25)
+figure3_25 <- fit_different_ct(ct_threshold = 25, 
+                               test_final = test_final_lft, 
+                               mod = mod, seedx = seedx)
 ggsave(figure3_25$plot, filename = "figure3_25.pdf", height = 30, width = 40, units = "cm")
 
 ##############################################

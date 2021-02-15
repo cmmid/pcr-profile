@@ -181,3 +181,19 @@ figureS3cd <- function(tab = NULL, symp = NULL) {
   
   return(figS3c)
 }
+
+fig_MAP <- function(p_tab = NULL, seedx = NULL) {
+  
+  set.seed(seedx)
+  out <- p_tab[iter %in% sample(1:4000, size = 150, replace = FALSE)] %>%
+    ggplot() +
+    geom_line(aes(x = diff, y = value, group = iter), col = "dodgerblue", alpha = 0.3) +
+    geom_line(data = p_tab[iter == which(res$lp__ == min(res$lp__))],
+              aes(x = diff, y = value), size = 1, lty = 2) +
+    cowplot::theme_cowplot() +
+    scale_y_continuous(breaks = seq(0, 1, 0.2), labels = seq(0, 100, 20)) +
+    labs(y = "Probability of detecting infection (%)", 
+         x = "Time since infection (days)")
+  
+  return(out)
+}

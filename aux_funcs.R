@@ -1,116 +1,68 @@
 
-# This is the function that gets run over the table of different parameters for delay and testing frequency
-# It runs the function "detpr" below on every sampled trajectory in p_tab and
-# returns the median + intervals of estimated probability
-prob_det_before_symp <- function(freqX, delay) {
-  print(paste0("Frequency: ", freqX))
-  print(paste0("Delay:", delay))
+testing_func <- function(freqX = NULL, detect_within = NULL, 
+                         delay_to_result = NULL, symp = NULL, 
+                         ptab = NULL) {
   
-  out <- p_tab[, detpr(freqX = freqX, ptab = .SD, detect_within = 30, delay_to_result = delay), by = "iter"
-  ][, .(median = median(V1), 
-        bottom = quantile(V1, 0.025),
-        top = quantile(V1, 0.975))]
+  # For symptomatic cases, we put the delay in probability of onset by X
+  # For asymptomatic cases, we put the delay in detect_within
+  det <- ifelse(symp == TRUE, detect_within, detect_within - delay_to_result)
+  
+  # Probability of being tested on day X given testing frequency
+  p_at_X <- 1 / freqX
+  
+  # Output matrix
+  p_out <- matrix(ncol = det + 1, nrow = 4000)
+  
+  # Special case for testing at X = 0
+  # P(tested on day 0) * P(test positive on day 0) * P(no onset by day 0)
+  p_out[, 1] <- p_at_X * (ptab[diff == 0, value] * (1 - inc_cumulative(delay_to_result))) 
+  X <- NA
+  
+  # Loop over time since infection X
+  for(X in 1:det) { # Need special case for X = 0
+    
+    # Probability that you have not onset by time X + delay to result from being tested now
+    # Set to 1 at all times for asymptomatic infections
+    p_no_onset <- ifelse(symp == TRUE, 1 - inc_cumulative(X + delay_to_result), 1)
+    
+    # Probability positive at X
+    p_pos_X <- ptab[diff == X, value]
+    
+    # You could have been tested before,
+    # depending on frequency
+    if(X >= freqX){
+      # Times that you could have been tested from X
+      # to zero
+      prev_t <- seq(X - freqX, 0, by = -freqX)
+      
+      # Probability that you tested negative at these previous times
+      pt <- matrix(ncol = length(prev_t), nrow = 4000)
+      for(i in 1:length(prev_t)) {
+        pt[, i] <- ptab[diff == prev_t[i], 1 - value]
+      }
+      
+      # Multiply together and add to matrix of output
+      # P(tested on X) * P(no onset by the time you get the result) * 
+      # P(test positive at X) * P(test negative at all times previous)
+      p_out[, X + 1] <- p_at_X * p_no_onset * p_pos_X * apply(X = pt, MARGIN = 1, FUN = prod)
+      
+    }else{
+      # If you haven't been tested before
+      p_out[, X + 1] <- p_at_X * p_no_onset * p_pos_X
+    }
+    
+  }
+  
+  # Summing over all times since infection for each posterior sample and taking quantiles
+  out <- data.table(median = quantile(rowSums(p_out), probs = 0.5),
+                    bottom = quantile(rowSums(p_out), probs = 0.025),
+                    top = quantile(rowSums(p_out), probs = 0.975))
+  
   return(out)
 }
-
-
-## This function calculates the probability of detecting an infection 
-# prior to symptom onset for a given delay and testing frequency
-detpr <- function(freqX, detect_within = 5, delay_to_result = 2, ptab){
- 
- # First step is to generate all the different testing regimes that
- # could occur for a given testing frequency
- pos_sampling_times <- list()
- 
- if(freqX >= detect_within){
-  for(i in 0:(detect_within))
-   # If testing frequency > maximum number of days then
-   # can only be tested once in the window
-   pos_sampling_times[[i + 1]] <- i
- }else if(freqX == 1){
-   # If the testing frequency is every day then
-   # there is one regime
-  pos_sampling_times[[1]] <- 0:(detect_within)
- }else{
-  for(i in 0:(freqX - 1)) {
-    # Generating different testing regimes depending on timing
-    # of first test after infection
-   pos_sampling_times[[i + 1]] <- seq(i, detect_within, by = freqX)
-  }
- }
-
- # Second step is to calculate the probability of detection prior
- # to symptom onset for each testing regime.
- pj <- 0
- for(j in 1:length(pos_sampling_times)) {
-  pk <- 0
-  for(k in 1:length(pos_sampling_times[[j]])) {
-   pk <- pos_test(pos_sampling_times[[j]][k] - delay_to_result, ptab = ptab) * (1 - inc_cumulative(pos_sampling_times[[j]][k])) *
-    ifelse(k > 1, prod(vapply(pos_sampling_times[[j]][1:(k - 1)]  - delay_to_result, FUN = function(x){(1 - pos_test(x, ptab = ptab)) * (1 - inc_cumulative(x))}, FUN.VALUE = 1)), 1)
-   pj <- pj + pk
-  }
- }
- return(pj / freqX)
-}
-
-# A way of safely accessing the probability of detecting
-# an infection from the posterior samples
-pos_test <- function(x, ptab){
-  if(x < 0){
-    return(0)
-  }else{
-    return(ptab[diff == x, value])
-  }
-}
-
-# This is the function that gets run over the table of different parameters for delay and testing frequency
-# It runs the function "detpr2" below on every sampled trajectory in p_tab and
-# returns the median + intervals of estimated probability
-prob_det_before_X_asymp <- function(freqX, delay, within) {
-  print(paste0("Frequency: ", freqX))
-  print(paste0("Delay:", delay))
-  print(paste0("Within:", within))
-  
-  out <- p_tab[, detpr2(freqX = freqX, ptab = .SD, detect_within = within, delay_to_result = delay), by = "iter"
-  ][, .(median = median(V1), 
-        bottom = quantile(V1, 0.025),
-        top = quantile(V1, 0.975))]
-  return(out)
-}
-
-## This function calculates the probability of detecting an asymptomatic infection 
-# within a certain number of days for a given delay and testing frequency
-detpr2 <- function(freqX, detect_within = 5, delay_to_result = 2, ptab){
- 
- pos_sampling_times <- list()
- # Again we find all the different possible testing regimes for 
- # a given testing frequency
- if(freqX >= detect_within){
-  for(i in 0:(detect_within - delay_to_result))
-   pos_sampling_times[[i + 1]] <- i
- }else if(freqX == 1){
-  pos_sampling_times[[1]] <- 0:(detect_within - delay_to_result)
- }else{
-  for(i in 0:(freqX - 1)) {
-   pos_sampling_times[[i + 1]] <- seq(i, detect_within - delay_to_result, by = freqX)
-  }
- }
- # Slightly simpler probabilities of detection because there
- # is no need to worry about symptom onset occurring beforehand
- pj <- 0
- for(j in 1:length(pos_sampling_times)) {
-  pk <- 0
-  for(k in 1:length(pos_sampling_times[[j]])) {
-   pk <- pos_test(pos_sampling_times[[j]][k], ptab = ptab) * 
-    ifelse(k > 1, prod(vapply(pos_sampling_times[[j]][1:(k - 1)], FUN = function(x){(1 - pos_test(x, ptab = ptab))}, FUN.VALUE = 1)), 1)
-   pj <- pj + pk
-  }
- }
- return(pj / freqX)
-} 
 
 # Run the main analysis for a different ct value
-fit_different_ct <- function(ct_threshold) {
+fit_different_ct <- function(ct_threshold = NULL, test_final = NULL, mod = NULL, seedx = NULL) {
   
   # Create new synthetic PCR results with different ct threshold
   test_lft <- test_final[, pcr_result := ifelse(ct == 0 | is.na(ct), 0, ifelse(ct <= ct_threshold, TRUE, FALSE))]
@@ -136,6 +88,7 @@ fit_different_ct <- function(ct_threshold) {
   res_lft <- rstan::extract(fit_lft)
   
   # Samples from LFT positive curve at different times since infection
+  p_vals <- seq(0, 30, 0.1)
   p_tab_lft <- as.data.table(res_lft$p)
   p_tab_lft <- data.table::melt(p_tab_lft)
   p_tab_lft$diff <- rep(p_vals, rep(12000, length(p_vals)))
@@ -157,7 +110,12 @@ fit_different_ct <- function(ct_threshold) {
                     within = 30,
                     delay = 0)
   
-  tab <- tab[, prob_det_before_symp(freqX = every, delay = delay), by = c("every", "delay")]
+  tab[, testing_func(freqX = every, 
+                     detect_within = 30, 
+                     delay_to_result = delay,
+                     symp = TRUE,
+                     ptab = p_tab), 
+      by = c("every", "delay")]
   
   figS3c <- figureS3cd(tab, symp = TRUE)
   
@@ -166,7 +124,12 @@ fit_different_ct <- function(ct_threshold) {
                      within = 7,
                      delay = 0)
   
-  tab2 <- tab2[, prob_det_before_X_asymp(freqX = every, delay = delay, within = within), by = c("every", "delay")]
+  tab2 <- tab2[, testing_func(freqX = every, 
+                              detect_within = 7, 
+                              delay_to_result = delay,
+                              symp = FALSE,
+                              ptab = p_tab), 
+               by = c("every", "delay")]
 
   figS3d <- figureS3cd(tab2, symp = FALSE)
   
