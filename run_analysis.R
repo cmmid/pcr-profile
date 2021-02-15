@@ -215,6 +215,8 @@ figure3 <- (fig3a + fig3b) / bot_panel + plot_annotation(tag_levels = "A")
 ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
 
 # Alternative figure 3 with different ct thresholds:
+# THESE WILL TAKE A WHILE TO RUN AS THEY INVOLVE GENERATING 
+# NEW COPIES OF FIGURE 3C + D EACH
 figure3_28 <- fit_different_ct(28)
 ggsave(figure3_28$plot, filename = "figure3_28.pdf", height = 30, width = 40, units = "cm")
 figure3_25 <- fit_different_ct(25)

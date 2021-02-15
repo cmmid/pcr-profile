@@ -157,12 +157,16 @@ fit_different_ct <- function(ct_threshold) {
                     within = 30,
                     delay = 0)
   
+  tab <- tab[, prob_det_before_symp(freqX = every, delay = delay), by = c("every", "delay")]
+  
   figS3c <- figureS3cd(tab, symp = TRUE)
   
   # Figure S3D
   tab2 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 1),
                      within = 7,
                      delay = 0)
+  
+  tab2 <- tab2[, prob_det_before_X_asymp(freqX = every, delay = delay, within = within), by = c("every", "delay")]
 
   figS3d <- figureS3cd(tab2, symp = FALSE)
   
