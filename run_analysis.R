@@ -128,14 +128,14 @@ ct_plot_dt[, ct := ifelse(is.na(ct), 40, ifelse(ct == 0, 40, ct))]
 
 ct_plot_dt[, x_date := date - infection_date]
 
-fig3a <- figure3a(ct_plot_dt)
+fig3a <- figure3a(ct_plot_dt = ct_plot_dt, ct_threshold = 37)
 
 
 #####################################
 # Figure 3B: Posterior of PCR curve #
 ######################################
 
-fig3b <- figure3b(res, test_final)
+fig3b <- figure3b(res = res, test_final = test_final, ribbon_col = "dodgerblue")
 
 
 #############################################################
@@ -174,8 +174,11 @@ tab <- data.table(every = rep(rep(day_list, rep(1, length(day_list))), 2),
 
 # Calculate summary statistics for each parameter combination
 # The function prob_det_before_symp can be found in aux_funcs.R
-# THIS MAY TAKE A LONG TIME TO RUN!
-tab <- tab[, prob_det_before_symp(freqX = every, delay = delay), by = c("every", "delay")]
+# THIS MAY TAKE AROUND 30 MINUTES TO RUN
+# tab <- tab[, prob_det_before_symp(freqX = every, delay = delay), by = c("every", "delay")]
+# fwrite(tab, file = "prob_det_before_symp_res.csv")
+# So instead we read in a csv of results
+tab <- fread("prob_det_before_symp_res.csv")
 
 # Generate figure 3c
 fig3c <- figure3c(tab)
@@ -195,8 +198,11 @@ tab2 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 
 
 # Calculate summary statistics for each parameter combination
 # The function prob_det_before_X_asymp can be found in aux_funcs.R
-# THIS MAY TAKE A LONG TIME TO RUN!
-tab2 <- tab2[, prob_det_before_X_asymp(freqX = every, delay = delay, within = within), by = c("every", "delay")]
+# THIS MAY TAKE ABOUT 5 MINUTES TO RUN!
+# tab2 <- tab2[, prob_det_before_X_asymp(freqX = every, delay = delay, within = within), by = c("every", "delay")]
+# fwrite(tab2, file = "prob_det_before_X_asymp_res.csv")
+
+tab2 <- fread("prob_det_before_X_asymp_res.csv")
 
 # Generate figure 3c
 fig3d <- figure3d(tab2)

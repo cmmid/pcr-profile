@@ -49,28 +49,28 @@ figure2 <- function(allsamp = NULL) {
   return(fig2)
 }
 
-figure3a <- function(ct_plot_dt = NULL) {
+figure3a <- function(ct_plot_dt = NULL, ct_threshold = NULL) {
   
   fig3a <- ct_plot_dt %>%
     ggplot(aes(x = x_date, y = ct, group = num_id)) + 
-    geom_point(aes(col = ifelse(ct >= 37, "Negative", "Positive"))) +
+    geom_point(aes(col = ifelse(ct >= ct_threshold, "Negative", "Positive"))) +
     scale_y_reverse() +
     cowplot::theme_cowplot() +
     labs(y = "Ct value", x = "Days since infection") +
     geom_vline(xintercept = 0, lty = 2) +
-    geom_hline(yintercept = 37, lty = 2) +
+    geom_hline(yintercept = ct_threshold, lty = 2) +
     scale_color_manual(name = "Test result", values = c("black", "red")) +
-    ggtitle("Test results with ct value threshold of 37") +
+    ggtitle(paste0("Test results with ct value threshold of ", ct_threshold)) +
     theme(legend.position = "right",
           plot.title = element_text(hjust = 0.5))
   
   return(fig3a)
 }
 
-figure3b <- function(res = NULL, test_final = NULL) {
+figure3b <- function(res = NULL, test_final = NULL, ribbon_col = NULL) {
   
   # Generate curve from posterior fit of model
-  pcols <- c("Posterior Distribution" = "dodgerblue","Empirical Distribution" = "black")
+  pcols <- c("Posterior Distribution" = ribbon_col,"Empirical Distribution" = "black")
   pshp <- c("Posterior Distribution" = 1, "Empirical Distribution" = 3)
   p <- data.frame(top = apply(res$p, 2, quantile, prob = 0.975), 
                   bottom = apply(res$p, 2, quantile, prob = 0.025),
@@ -155,4 +155,29 @@ figure3d <- function(tab2 = NULL) {
     coord_cartesian(ylim = c(0 ,1))
   
   return(fig3d)
+}
+
+figureS3cd <- function(tab = NULL, symp = NULL) {
+  
+  tt <- ifelse(symp == TRUE, 
+               "Probability of detecting symptomatic case before onset",
+               "Probability of detecting asymptomatic case within 7 days")
+  
+  tab[, every_lab := paste0("every ", every, " day(s)")]
+  tab$every_lab <- factor(tab$every_lab, levels = paste0("every ", day_list, " day(s)"))
+  tab$delay <- factor(tab$delay, labels = c("0 days"))
+  
+  figS3c <- tab %>%
+    ggplot(aes(x = every_lab, y = median, ymin = bottom, ymax = top)) +
+    geom_errorbar(position = position_dodge(0.5), width = 0.5) +
+    geom_point(position = position_dodge(0.5)) +
+    scale_color_brewer(palette = "Set1", name = "Results delay") +
+    cowplot::theme_minimal_hgrid() +
+    theme(legend.position = "right",
+          plot.title = element_text(hjust = 0.5)) +
+    labs(x = "Testing frequency", y = "Probability (%)", title = tt) +
+    scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
+    coord_cartesian(ylim = c(0 ,1))
+  
+  return(figS3c)
 }
