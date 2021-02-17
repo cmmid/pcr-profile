@@ -320,14 +320,14 @@ t4 <- t4[, .(days_since_exposure = t, fnr_med = 1 - median, fnr_lb = 1 - upper, 
 
 borremans <- fread("borremans_swab_pos.csv")
 borremans <- borremans[, .(days_since_exposure = days_since_onset + 5, pct_pos = (pct_pos / 100), n, model = "Hay/Kennedy-Shaffer")]
-fig4a_points <- rbindlist(list(pcr_dat_ext, borremans), use.names = TRUE, fill = TRUE)[days_since_exposure >= 0 & days_since_exposure <= 30]
+figS1a_points <- rbindlist(list(pcr_dat_ext, borremans), use.names = TRUE, fill = TRUE)[days_since_exposure >= 0 & days_since_exposure <= 30]
 
-fig4a <- rbindlist(list(t1,t2, t4), use.names = TRUE)%>%
+figS1a <- rbindlist(list(t1,t2, t4), use.names = TRUE)%>%
   ggplot(aes(x = days_since_exposure, y = 1 - fnr_med, ymin = 1 - fnr_lb, ymax = 1 - fnr_ub)) +
   geom_vline(xintercept = 5, lty = 2) +
   geom_line(aes(col = model)) +
   geom_ribbon(aes(fill = model), alpha = 0.45) +
-  geom_point(inherit.aes = FALSE, data = fig4a_points, size = 2,
+  geom_point(inherit.aes = FALSE, data = figS1a_points, size = 2,
              aes(x = days_since_exposure, y = pct_pos, col = model), alpha = 0.6) +
   facet_wrap(~ model) +
   scale_x_continuous(breaks = seq(1, 30, 2)) + 
@@ -371,12 +371,19 @@ main_analysis_ext <- make_analysis_data(stan_model=npv_onset_model,
                                         save_stan=F)
 
 
-t3 <- as.data.table(main_analysis_ext$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)][, model := "Kucirka (original + SAFER data)"]
-t3
+# Format results
+t3 <- as.data.table(main_analysis_ext$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)
+                                                ][, model := "Kucirka (original + SAFER data)"]
 
+# Format our results
 t2[, model := "Hellewell/Russell (SAFER data only)"]
 
-fig4b <- rbindlist(list(t3,t2), use.names = TRUE) %>%
+# Fit Kucirka to only SAFER data
+pcr_dat_safer <- pcr_dat_ext[study == "SAFER"]
+
+
+
+figS1b <- rbindlist(list(t3,t2), use.names = TRUE) %>%
   ggplot(aes(x = days_since_exposure, y = 1 - fnr_med, ymin = 1 - fnr_lb, ymax = 1 - fnr_ub)) +
   # geom_point(data = pcr_dat_ext, aes(x = days_since_exposure, y = pct_pos, size = n), inherit.aes = FALSE, alpha = 0.5) +
   geom_vline(xintercept = 5, lty = 2) +
@@ -393,7 +400,7 @@ fig4b <- rbindlist(list(t3,t2), use.names = TRUE) %>%
   theme(legend.position = "bottom")
 
 # Put figure 4 together
-figS1 <- fig4a / fig4b + patchwork::plot_annotation(tag_levels = "A")
+figS1 <- figS1a / figS1b + patchwork::plot_annotation(tag_levels = "A")
 
 # Save figure S1
 ggsave(figS1, filename = "figureS1.pdf", height = 30, width = 40, units = "cm")

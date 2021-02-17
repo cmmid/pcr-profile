@@ -71,7 +71,7 @@ figure3a <- function(ct_plot_dt = NULL, ct_threshold = NULL) {
 figure3b <- function(res = NULL, test_final = NULL, ribbon_col = NULL) {
   
   # Generate curve from posterior fit of model
-  pcols <- c("Posterior Distribution" = ribbon_col,"Empirical Distribution" = "black")
+  pcols <- c("Posterior Distribution" = ribbon_col,"Empirical Distribution" = "#BDBDBD")
   pshp <- c("Posterior Distribution" = 1, "Empirical Distribution" = 3)
   p <- data.frame(top = apply(res$p, 2, quantile, prob = 0.975), 
                   bottom = apply(res$p, 2, quantile, prob = 0.025),
@@ -159,6 +159,8 @@ figure3d <- function(tab2 = NULL) {
 }
 
 figureS3cd <- function(tab = NULL, symp = NULL) {
+  
+  day_list <- c(2, 3, 4)
   
   tt <- ifelse(symp == TRUE, 
                "Probability of detecting symptomatic case before onset",
