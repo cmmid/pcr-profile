@@ -13,3 +13,19 @@ prob_cont <- function(time_since_inf, q = 0.5) {
 prob_cont(time_since_inf = 7, q = c(0.025, 0.5, 0.975))
 
 
+# A nice speedy way of calculating number of detectable cases from
+# a time series of daily infections
+
+pvec <- vapply(X = 0:365, FUN = prob_cont, FUN.VALUE = 1, q = 0.5)
+
+detectable_cases <- function(x) {
+  
+  out <- rep(0, length(x))
+  for(i in 1:length(x)) {
+    for(j in i:1) {
+      out[i] <- out[i] + x[i] * pvec[i - j + 1]
+    }
+  }
+  
+  return(out)
+}
