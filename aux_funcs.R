@@ -104,23 +104,23 @@ fit_different_ct <- function(ct_threshold = NULL, test_final = NULL, mod = NULL,
   
   # Figure S3C
   # Evaluated testing frequencies
-  day_list <- c(2, 3, 4)
+  day_list_lft <- c(2, 3, 4)
   
-  tab <- data.table(every = rep(rep(day_list, rep(1, length(day_list))), 1),
+  tab <- data.table(every = rep(rep(day_list_lft, rep(1, length(day_list_lft))), 1),
                     within = 30,
                     delay = 0)
   
-  tab[, testing_func(freqX = every, 
+  tab <- tab[, testing_func(freqX = every, 
                      detect_within = 30, 
                      delay_to_result = delay,
                      symp = TRUE,
                      ptab = p_tab), 
       by = c("every", "delay")]
   
-  figS3c <- figureS3cd(tab, symp = TRUE)
+  figS3c <- figureS3cd(tab, symp = TRUE, day_list = day_list_lft)
   
   # Figure S3D
-  tab2 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 1),
+  tab2 <- data.table(every = rep(rep(day_list_lft, rep(length(1), length(day_list_lft))), 1),
                      within = 7,
                      delay = 0)
   
@@ -131,7 +131,7 @@ fit_different_ct <- function(ct_threshold = NULL, test_final = NULL, mod = NULL,
                               ptab = p_tab), 
                by = c("every", "delay")]
 
-  figS3d <- figureS3cd(tab2, symp = FALSE)
+  figS3d <- figureS3cd(tab2, symp = FALSE, day_list = day_list_lft)
   
 
   bot_panel <- (figS3c + figS3d) + patchwork::plot_layout(guides = "collect")
