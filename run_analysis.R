@@ -111,7 +111,6 @@ allsamp <- data.table::melt(as.data.table(res$T_e)[, iterations := 1:.N],
                                                    ][, num_id := as.numeric(num_id)]
 # Bin into discrete days
 allsamp[, smp := round(smp) + start_date]
-cols <- c("Posterior infection date" = "darkorchid4", "Censored onset interval" = "green4")
 
 # Generate figure 2
 fig2 <- figure2(allsamp)

@@ -27,6 +27,8 @@ figure1 <- function(dfy = NULL) {
 
 figure2 <- function(allsamp = NULL) {
   
+  cols <- c("Posterior infection date" = "darkorchid4", "Censored onset interval" = "green4", "PCR positive" = "red", "PCR negative" = "black")
+  
   # Generate figure 2
   fig2 <- allsamp %>%
     ggplot(aes(x = smp, y = as.factor(num_id), col = "Posterior infection date")) + 
@@ -45,7 +47,11 @@ figure2 <- function(allsamp = NULL) {
           legend.text = element_text(size = 14)) +
     guides(color = guide_legend(override.aes = list(fill = "white"))) +
     coord_cartesian(xlim = c(as.Date("2020-03-13"), as.Date("2020-04-17"))) +
-    scale_x_date(minor_breaks = "1 day", breaks = "4 days", date_labels = "%d %B")
+    scale_x_date(minor_breaks = "1 day", breaks = "4 days", date_labels = "%d %B") +
+    geom_point(data = subset(test_final, pcr_result == TRUE), inherit.aes = FALSE, aes(x = date, y = num_id, col = "PCR positive"), shape = 0, stroke = 1.1) +
+    geom_point(data = subset(test_final, pcr_result == FALSE), inherit.aes = FALSE, aes(x = date, y = num_id, col = "PCR negative"), shape = 0, stroke = 1.1)
+  
+  fig2
   
   return(fig2)
 }
