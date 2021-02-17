@@ -11,9 +11,10 @@ figure1 <- function(dfy = NULL) {
     cowplot::theme_minimal_grid() +
     scale_color_manual(values = cols1[c(2,7)], name = "PCR result", labels = c("Negative", "Positive")) +
     scale_fill_manual(values = c("white","red"), name = "Symptoms") +
-    labs(x = "Day", y = "Participant ID") +
-    theme(axis.text.x=element_blank()) + 
-    scale_x_continuous(breaks =  seq(-19, 38, 1)) +
+    labs(x = "Days since last asymptomatic report", y = "Participant ID") +
+    # theme(axis.text.x=element_blank()) + 
+    scale_x_continuous(minor_breaks = seq(-19, 38, 1), breaks = seq(-16, 36, 4)) +
+    theme(panel.grid.minor = element_line(size = (0.2), colour="grey")) +
     coord_cartesian(xlim = c(-19, 38)) +
     new_scale_color() +
     geom_point(data = dfy[!is.na(serology_day), .(serology_day = serology_day[1] - last_asym_day.x), num_id][, sero := TRUE],
