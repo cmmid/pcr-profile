@@ -73,17 +73,11 @@ figure3b <- function(res = NULL, test_final = NULL, ribbon_col = NULL) {
   # Generate curve from posterior fit of model
   pcols <- c("Posterior Distribution" = ribbon_col,"Empirical Distribution" = "#BDBDBD")
   pshp <- c("Posterior Distribution" = 1, "Empirical Distribution" = 3)
-  p <- data.frame(top = apply(res$p, 2, quantile, prob = 0.975), 
+  
+  pt <- data.frame(top = apply(res$p, 2, quantile, prob = 0.975), 
                   bottom = apply(res$p, 2, quantile, prob = 0.025),
                   y = apply(res$p, 2, median),
-                  days = seq(0, 30, 0.1)) %>%
-    ggplot2::ggplot(ggplot2::aes(x = days, y=y,  ymin = bottom, ymax = top, fill = "Posterior Distribution")) +
-    ggplot2::geom_ribbon(alpha = 0.75) + 
-    cowplot::theme_cowplot() + 
-    ggplot2::geom_line(aes(lty = "Posterior median")) +
-    ggplot2::labs(y = "Probability of positive PCR (%)", x = "Days since infection") +
-    ggplot2::scale_y_continuous(breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 100, 20))) +
-    ggplot2::scale_x_continuous(breaks = c(0, seq(5, 30, 5)))
+                  days = seq(0, 30, 0.1))
   
   # Generate empirical distribution of PCR curve from posterior samples 
   # of infection times
@@ -104,15 +98,22 @@ figure3b <- function(res = NULL, test_final = NULL, ribbon_col = NULL) {
         bottom = quantile(pos, 0.025)), by = x][x >= 0]
   
   # Add empirical distribution to posterior distribution plot
-  fig3b <- p + 
-    geom_ribbon(data = res_day, inherit.aes = FALSE, aes(x = x, y = mean, ymin = bottom, ymax = top, fill = "Empirical Distribution"), alpha = 0.25) +
-    geom_line(data = res_day, inherit.aes = FALSE, aes(x = x, y = mean, lty = "Empirical mean")) +
+  fig3b <- 
+    ggplot() +
+    geom_ribbon(data = res_day, inherit.aes = FALSE, aes(x = x, y = mean, ymin = bottom, ymax = top, fill = "Empirical Distribution")) +
     scale_y_continuous(breaks = seq(0, 1, 0.2), labels = seq(0, 100, 20)) +
-    coord_cartesian(xlim = c(0, 30)) +
     ggtitle("PCR positivity over the course of infection") +
     theme(plot.title = element_text(hjust = 0.5)) +
     scale_fill_manual(values = pcols, name = "") +
-    scale_linetype_discrete(name = "")
+    scale_linetype_discrete(name = "") + 
+    ggplot2::geom_ribbon(inherit.aes = FALSE, data = pt, ggplot2::aes(x = days, y = y,  ymin = bottom, ymax = top, fill = "Posterior Distribution")) + 
+    cowplot::theme_cowplot() + 
+    ggplot2::geom_line(inherit.aes = FALSE, data = pt, aes(x = days, y = y, lty = "Posterior median")) +
+    geom_line(data = res_day, inherit.aes = FALSE, aes(x = x, y = mean, lty = "Empirical mean")) +
+    ggplot2::labs(y = "Probability of positive PCR (%)", x = "Days since infection") +
+    ggplot2::scale_y_continuous(breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 100, 20))) +
+    ggplot2::scale_x_continuous(breaks = c(0, seq(5, 30, 5))) +
+    coord_cartesian(xlim = c(0, 30))
   
   return(fig3b)
 }
