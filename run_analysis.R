@@ -214,13 +214,14 @@ ggsave(figure3, filename = "figure3.pdf", height = 30, width = 40, units = "cm")
 # Alternative figure 3 with different ct thresholds:
 # THESE WILL TAKE A WHILE TO RUN AS THEY INVOLVE GENERATING 
 # NEW COPIES OF FIGURE 3C + D EACH
-test_final_lft <- data.table::copy(test_final)
+test_final_lft_28 <- data.table::copy(test_final)
+test_final_lft_25 <- data.table::copy(test_final)
 figure3_28 <- fit_different_ct(ct_threshold = 28, 
-                               test_final = test_final_lft, 
+                               test_final = test_final_lft_28, 
                                mod = mod, seedx = seedx)
 ggsave(figure3_28$plot, filename = "figure3_28.pdf", height = 30, width = 40, units = "cm")
 figure3_25 <- fit_different_ct(ct_threshold = 25, 
-                               test_final = test_final_lft, 
+                               test_final = test_final_lft_25, 
                                mod = mod, seedx = seedx)
 ggsave(figure3_25$plot, filename = "figure3_25.pdf", height = 30, width = 40, units = "cm")
 

@@ -16,7 +16,6 @@ testing_func <- function(freqX = NULL, detect_within = NULL,
   # Special case for testing at X = 0
   # P(tested on day 0) * P(test positive on day 0) * P(no onset by day 0)
   p_out[, 1] <- p_at_X * (ptab[diff == 0, value] * (1 - inc_cumulative(delay_to_result))) 
-  X <- NA
   
   # Loop over time since infection X
   for(X in 1:det) { # Need special case for X = 0
@@ -94,6 +93,7 @@ fit_different_ct <- function(ct_threshold = NULL, test_final = NULL, mod = NULL,
   p_tab_lft$diff <- rep(p_vals, rep(12000, length(p_vals)))
   p_tab_lft$iter <- rep(1:12000, length(p_vals))
   p_tab_lft[, variable := NULL]
+  p_tab_lft <- p_tab_lft[iter > 8000]
   
   # Figure S3A
   figS3a <- figure3a(ct_plot_dt = ct_plot_dt, ct_threshold = ct_threshold)
@@ -114,10 +114,10 @@ fit_different_ct <- function(ct_threshold = NULL, test_final = NULL, mod = NULL,
                      detect_within = 30, 
                      delay_to_result = delay,
                      symp = TRUE,
-                     ptab = p_tab), 
+                     ptab = p_tab_lft), 
       by = c("every", "delay")]
   
-  figS3c <- figureS3cd(tab, symp = TRUE, day_list = day_list_lft)
+  figS3c <- figureS3cd(tab, symp = TRUE)
   
   # Figure S3D
   tab2 <- data.table(every = rep(rep(day_list_lft, rep(length(1), length(day_list_lft))), 1),
@@ -128,10 +128,10 @@ fit_different_ct <- function(ct_threshold = NULL, test_final = NULL, mod = NULL,
                               detect_within = 7, 
                               delay_to_result = delay,
                               symp = FALSE,
-                              ptab = p_tab), 
+                              ptab = p_tab_lft), 
                by = c("every", "delay")]
 
-  figS3d <- figureS3cd(tab2, symp = FALSE, day_list = day_list_lft)
+  figS3d <- figureS3cd(tab2, symp = FALSE)
   
 
   bot_panel <- (figS3c + figS3d) + patchwork::plot_layout(guides = "collect")
