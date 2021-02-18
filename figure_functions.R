@@ -207,3 +207,15 @@ fig_MAP <- function(p_tab = NULL, seedx = NULL) {
   
   return(out)
 }
+
+figureS2 <- function(data = NULL) {
+  out <- data %>%
+    ggplot(aes(x = diff, y = med, ymin = bottom, ymax = top, group = .id)) +
+    geom_ribbon(fill = "blue", alpha = 1/27) +
+    geom_line() +
+    scale_y_continuous(breaks = seq(0, 1, 0.2), labels = seq(0, 100, 20)) +
+    cowplot::theme_cowplot() +
+    labs(y = "Probability of positive PCR", x = "Days since infection")
+  
+  return(out)
+}

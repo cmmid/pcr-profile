@@ -307,22 +307,22 @@ pcr_dat %<>%
 pcr_dat_ext <- rbindlist(list(pcr_dat, pcr_dat_ext), use.names = TRUE, fill = TRUE)
 
 
-t1 <- as.data.table(main_analysis$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)][, model := "Kucirka"]
+kucirka_res <- as.data.table(main_analysis$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)][, model := "Kucirka"]
 
-t2 <- data.table(fnr_ub = 1 - apply(res$p, 2, quantile, prob = 0.975), 
+safer_res <- data.table(fnr_ub = 1 - apply(res$p, 2, quantile, prob = 0.975), 
                  fnr_lb = 1 - apply(res$p, 2, quantile, prob = 0.025),
                  fnr_med = 1 - apply(res$p, 2, median),
                  days_since_exposure = seq(0, 30, 0.1),
                  model = "Hellewell/Russell")
 
-t4 <- fread("Hay_S1_data.csv")
-t4 <- t4[, .(days_since_exposure = t, fnr_med = 1 - median, fnr_lb = 1 - upper, fnr_ub = 1 - lower, model = "Hay/Kennedy-Shaffer")][days_since_exposure <= 30]
+hay_res <- fread("Hay_S1_data.csv")
+hay_res <- hay_res[, .(days_since_exposure = t, fnr_med = 1 - median, fnr_lb = 1 - upper, fnr_ub = 1 - lower, model = "Hay/Kennedy-Shaffer")][days_since_exposure <= 30]
 
 borremans <- fread("borremans_swab_pos.csv")
 borremans <- borremans[, .(days_since_exposure = days_since_onset + 5, pct_pos = (pct_pos / 100), n, model = "Hay/Kennedy-Shaffer")]
 figS1a_points <- rbindlist(list(pcr_dat_ext, borremans), use.names = TRUE, fill = TRUE)[days_since_exposure >= 0 & days_since_exposure <= 30]
 
-figS1a <- rbindlist(list(t1,t2, t4), use.names = TRUE)%>%
+figS1a <- rbindlist(list(kucirka_res,hay_res, safer_res), use.names = TRUE)%>%
   ggplot(aes(x = days_since_exposure, y = 1 - fnr_med, ymin = 1 - fnr_lb, ymax = 1 - fnr_ub)) +
   geom_vline(xintercept = 5, lty = 2) +
   geom_line(aes(col = model)) +
@@ -336,9 +336,9 @@ figS1a <- rbindlist(list(t1,t2, t4), use.names = TRUE)%>%
   scale_color_brewer(guide = "none", palette = "Set2") +
   scale_fill_brewer(guide = "none", palette = "Set2") +
   labs(x = "Days since infection", y = "Probability of positive PCR test (%)") +
-  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
-  geom_vline(data = data.frame(model = c("Hellewell/Russell", "Kucirka", "Hay/Kennedy-Shaffer"), xintercept = c(4, 8, 4)),
-             aes(xintercept = xintercept), alpha = 0.5)
+  scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25))# +
+  # geom_vline(data = data.frame(model = c("Hellewell/Russell", "Kucirka", "Hay/Kennedy-Shaffer"), xintercept = c(4, 8, 4)),
+             # aes(xintercept = xintercept), alpha = 0.5)
 
 
 ##################################################
@@ -372,18 +372,16 @@ main_analysis_ext <- make_analysis_data(stan_model=npv_onset_model,
 
 
 # Format results
-t3 <- as.data.table(main_analysis_ext$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)
+kucirka_ext_res <- as.data.table(main_analysis_ext$plot_dat)[, .(days_since_exposure, fnr_med, fnr_ub, fnr_lb)
                                                 ][, model := "Kucirka (original + SAFER data)"]
 
+kucirka_res[, model := "Kucirka (original data)"]
+
 # Format our results
-t2[, model := "Hellewell/Russell (SAFER data only)"]
-
-# Fit Kucirka to only SAFER data
-pcr_dat_safer <- pcr_dat_ext[study == "SAFER"]
+safer_res[, model := "Hellewell/Russell (SAFER data only)"]
 
 
-
-figS1b <- rbindlist(list(t3,t2), use.names = TRUE) %>%
+figS1b <- rbindlist(list(kucirka_res, kucirka_ext_res, safer_res), use.names = TRUE) %>%
   ggplot(aes(x = days_since_exposure, y = 1 - fnr_med, ymin = 1 - fnr_lb, ymax = 1 - fnr_ub)) +
   # geom_point(data = pcr_dat_ext, aes(x = days_since_exposure, y = pct_pos, size = n), inherit.aes = FALSE, alpha = 0.5) +
   geom_vline(xintercept = 5, lty = 2) +
@@ -392,14 +390,16 @@ figS1b <- rbindlist(list(t3,t2), use.names = TRUE) %>%
   scale_x_continuous(breaks = seq(0, 30, 1)) + 
   cowplot::theme_cowplot() +
   scale_shape_discrete(name = "Number of tests") +
-  scale_fill_brewer(name = "Model", palette = "Set1") +
-  scale_colour_brewer(name = "Model", palette = "Set1") +
+  # scale_fill_brewer(name = "Model", palette = "Set1") +
+  # scale_colour_brewer(name = "Model", palette = "Set1") +
+  scale_fill_manual(values = c("#D95F02", "dimgrey", "#7570B3")) +
+  scale_colour_manual(values = c("#D95F02", "dimgrey", "#7570B3")) +
   labs(x = "Days since infection", y = "Probability of positive PCR test (%)") +
   scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
-  geom_vline(xintercept = c(4, 6), alpha = 0.5) +
+  # geom_vline(xintercept = c(4, 6), alpha = 0.5) +
   theme(legend.position = "bottom")
 
-# Put figure 4 together
+# Put figure S1 together
 figS1 <- figS1a / figS1b + patchwork::plot_annotation(tag_levels = "A")
 
 # Save figure S1
@@ -495,9 +495,14 @@ figS3 <- p_lft +
 # Save figure S3
 ggsave(figS3, filename = "figureS3.pdf", height = 15, width = 20, units = "cm")
 
+
 ########################
 # Sensitivity analysis #
 ########################
+
+###############
+## FIGURE S2 ##
+###############
 
 # Loop over each participant and leave them out when fitting model
 oos_fit <- list()
@@ -517,8 +522,8 @@ for(i in 1:dat$P) {
   dat$te_upper_bound <- test_final[, te_upper_bound := ifelse(
     any(day[pcr_result == TRUE] < first_symp_day[pcr_result == TRUE]),
     min(day[pcr_result == TRUE & day < first_symp_day]),
-    first_symp_day), by = id
-  ][, .(te_upper_bound = unique(te_upper_bound)), id][,te_upper_bound]
+    first_symp_day), by = num_id
+  ][, .(te_upper_bound = unique(te_upper_bound)), num_id][,te_upper_bound]
   
   oos_fit[[i]] <- rstan::sampling(mod, chains = 4, 
                                   iter = 2000,
@@ -531,18 +536,13 @@ for(i in 1:dat$P) {
 }
 
 # Bind results together and format
-res <- data.table::rbindlist(lapply(oos_fit, FUN = function(x){as.data.table(extract(x)$p)}), idcol = TRUE)
+res_oos <- data.table::rbindlist(lapply(oos_fit, FUN = function(x){as.data.table(rstan::extract(x)$p)}), idcol = TRUE)
 p_vals <- seq(0, 30, 0.1)
-p_tab <- data.table::melt(res, id.vars = ".id")
-p_tab$diff = (as.integer(substr(p_tab$variable, start = 2, stop = 4))) * 0.1 - 0.1
-p_tab[, variable := NULL]
-datt <- p_tab[, .(med = median(value), top = quantile(value, 0.975), bottom = quantile(value, 0.025)), by = c(".id", "diff")]
+p_oos <- data.table::melt(res_oos, id.vars = ".id")
+p_oos$diff = (as.integer(substr(p_oos$variable, start = 2, stop = 4))) * 0.1 - 0.1
+p_oos <- p_oos[, .(med = median(value), top = quantile(value, 0.975), bottom = quantile(value, 0.025)), by = c(".id", "diff")]
 
 # Plot output
-datt %>%
-  ggplot(aes(x = diff, y = med, ymin = bottom, ymax = top, group = .id)) +
-  geom_ribbon(fill = "blue", alpha = 1/27) +
-  geom_line() +
-  scale_y_continuous(breaks = seq(0, 1, 0.2), labels = seq(0, 100, 20)) +
-  cowplot::theme_cowplot() +
-  labs(y = "Probability of positive PCR", x = "Days since infection")
+figS2 <- figureS2(data = p_oos)
+ggsave(figS2, filename = "figureS2.pdf", height = 15, width = 20, units = "cm" )
+
