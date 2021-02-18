@@ -145,7 +145,8 @@ figure3c <- function(tab = NULL) {
   return(fig3c)
 }
 
-figure3d <- function(tab2 = NULL) {
+figure3d <- function(tab2 = NULL, wth = NULL) {
+  
   tab2[, every_lab := paste0("every ", every, " day(s)")]
   tab2$every_lab <- factor(tab2$every_lab, levels = paste0("every ", day_list, " day(s)"))
   tab2$delay <- factor(tab2$delay, labels = c("1 day", "2 days"))
@@ -158,7 +159,7 @@ figure3d <- function(tab2 = NULL) {
     cowplot::theme_minimal_hgrid() +
     theme(legend.position = "right",
           plot.title = element_text(hjust = 0.5)) +
-    labs(x = "Testing frequency", y = "Probability (%)", title = "Probability of detecting asymptomatic case within 7 days") +
+    labs(x = "Testing frequency", y = "Probability (%)", title = paste0("Probability of detecting asymptomatic case within ", wth," days")) +
     scale_y_continuous(breaks = seq(0, 1, 0.25), labels = seq(0, 100, 25)) +
     coord_cartesian(ylim = c(0 ,1))
   

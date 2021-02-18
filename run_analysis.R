@@ -202,7 +202,7 @@ tab2 <- tab2[, testing_func(freqX = every,
            by = c("every", "delay")]
 
 # Generate figure 3c
-fig3d <- figure3d(tab2)
+fig3d <- figure3d(tab2, wth = 7)
 
 # Patchwork the three plots together
 bot_panel <- (fig3c + fig3d) + patchwork::plot_layout(guides = "collect")
@@ -546,3 +546,31 @@ p_oos <- p_oos[, .(med = median(value), top = quantile(value, 0.975), bottom = q
 figS2 <- figureS2(data = p_oos)
 ggsave(figS2, filename = "figureS2.pdf", height = 15, width = 20, units = "cm" )
 
+
+##################################
+## FIGURE S4 - TRAJECTORY + MAP ##
+##################################
+
+figS4 <- fig_MAP(p_tab = p_tab, seedx = seedx)
+ggsave(figS4, filename = "figureS4.pdf", height = 15, width = 20, units = "cm" )
+
+####################################
+## FIGURE S5 - 5 DAY ASYMPTOMATIC ##
+####################################
+
+tab5 <- data.table(every = rep(rep(day_list, rep(length(1), length(day_list))), 2),
+                   within = 5,
+                   delay = rep(c(1, 2), c(5, 5)))
+
+# Calculate summary statistics for each parameter combination
+tab5 <- tab5[, testing_func(freqX = every, 
+                            detect_within = within, 
+                            delay_to_result = delay,
+                            symp = FALSE,
+                            ptab = p_tab), 
+             by = c("every", "delay")]
+
+# Generate figure 3c
+figS5 <- figure3d(tab5, wth = 5)
+figS5
+ggsave(figS5, filename = "figureS5.pdf", height = 15, width = 20, units = "cm" )
