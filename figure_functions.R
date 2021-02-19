@@ -220,3 +220,27 @@ figureS2 <- function(data = NULL) {
   
   return(out)
 }
+
+figureS6 <- function(res_lauer = NULL, res_mcaloon = NULL) {
+  
+  out <- rbindlist(list(data.frame(top = apply(res_lauer$p, 2, quantile, prob = 0.975), 
+                            bottom = apply(res_lauer$p, 2, quantile, prob = 0.025),
+                            y = apply(res_lauer$p, 2, median),
+                            days = seq(0, 30, 0.1),
+                            inc = "Lauer"), 
+                 data.frame(top = apply(res_mcaloon$p, 2, quantile, prob = 0.975), 
+                            bottom = apply(res_mcaloon$p, 2, quantile, prob = 0.025),
+                            y = apply(res_mcaloon$p, 2, median),
+                            days = seq(0, 30, 0.1),
+                            inc = "McAloon"))) %>%
+    ggplot(aes(x = days, y = y, ymin = bottom, ymax = top))+
+    geom_ribbon(aes(fill = inc), alpha = 0.5) +
+    geom_line(aes(col = inc)) +
+    scale_fill_brewer(palette = "Set1", name = "Incubation period") +
+    scale_color_brewer(palette = "Set1", name = "Incubation period") +
+    cowplot::theme_cowplot() +
+    labs(x = "Days since infection", 
+         y = "Probability of detecting infection (%)")
+  
+  return(out)
+}

@@ -574,3 +574,23 @@ tab5 <- tab5[, testing_func(freqX = every,
 figS5 <- figure3d(tab5, wth = 5)
 figS5
 ggsave(figS5, filename = "figureS5.pdf", height = 15, width = 20, units = "cm" )
+
+############################################
+## FIGURE S6 - FLEXIBLE INCUBATION PERIOD ##
+############################################
+
+dat$lmean <- 1.63
+dat$lsd <- 0.5
+
+fit_flex <- rstan::sampling(mod, chains = 4, 
+                       iter = 4000,
+                       warmup = 2000,
+                       data = dat,
+                       seed = seedx,
+                       control = list(adapt_delta = 0.99, 
+                                      stepsize = 0.75,
+                                      max_treedepth = 13))
+res_flex <- rstan::extract(fit_flex)
+
+figS6 <- figureS6(res_lauer = res, res_mcaloon = res_flex)
+ggsave(figS6, filename = "figureS6.pdf", height = 15, width = 20, units = "cm")
