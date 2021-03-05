@@ -216,7 +216,7 @@ figureS2 <- function(data = NULL) {
     geom_line() +
     scale_y_continuous(breaks = seq(0, 1, 0.2), labels = seq(0, 100, 20)) +
     cowplot::theme_cowplot() +
-    labs(y = "Probability of positive PCR", x = "Days since infection")
+    labs(y = "Probability of detecting infection (%)", x = "Days since infection")
   
   return(out)
 }
