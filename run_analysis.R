@@ -52,7 +52,7 @@ test_final <- merge(test_final, first_last_df)
 ######################################
 
 # Merge testing and symptom data into one data table
-dfy <- merge(symp_final, test_final, by = c("num_id","day"))
+dfy <- merge(symp_final, test_final, by = c("num_id","day"), all = TRUE)
 
 fig1 <- figure1(dfy) 
 

@@ -5,12 +5,12 @@ figure1 <- function(dfy = NULL) {
   
   # Generate figure 1
   fig1 <- dfy %>%
-    ggplot(aes(x = day  - last_asym_day.x, y = as.factor(num_id))) +
+    ggplot(aes(x = day  - last_asym_day.y, y = as.factor(num_id))) +
     geom_point(aes(fill = symptom), size = 3, shape = 21, stroke = 1.5, col = "white") +
     geom_point(aes(col = pcr_result), size = 3, shape = 21, stroke = 1.5) +
     cowplot::theme_minimal_grid() +
     scale_color_manual(values = cols1[c(2,7)], name = "PCR result", labels = c("Negative", "Positive")) +
-    scale_fill_manual(values = c("white","red"), name = "Symptoms") +
+    scale_fill_manual(values = c("white","red"), name = "Symptoms", na.value = "grey40") +
     labs(x = "Days since last asymptomatic report", y = "Participant ID") +
     # theme(axis.text.x=element_blank()) + 
     scale_x_continuous(minor_breaks = seq(-19, 38, 1), breaks = seq(-16, 36, 4)) +
